@@ -1,0 +1,39 @@
+{
+  "name": "sails-hook-kue-based-jobs",
+  "version": "1.0.0",
+  "description": "Sails Hook For Jobs Scheduling Based on Kue",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "sails": {
+    "isHook": true,
+    "hookName": "kue-jobs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deepakgonda/sails-hook-kue-based-jobs.git"
+  },
+  "keywords": [
+    "Sails",
+    "Jobs",
+    "Sails",
+    "Kue",
+    "Sails",
+    "Hooks"
+  ],
+  "author": "Deepak Pandey",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/deepakgonda/sails-hook-kue-based-jobs/issues"
+  },
+  "homepage": "https://github.com/deepakgonda/sails-hook-kue-based-jobs#readme",
+  "dependencies": {
+    "fs-extra": "^8.0.1",
+    "kue": "^0.11.6"
+  },
+  "devDependencies": {
+    "mocha": "^6.1.4",
+    "sails": "^1.2.2"
+  }
+}
