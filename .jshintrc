@@ -1,0 +1,16 @@
+{
+    "esversion": 8,
+    "undef"         : true,
+    "unused"        : true, 
+    "shadow"        : false,
+    "notypeof"      : false,
+    "varstmt"       : false,
+
+
+    "globals"       : {
+        "module": true,
+        "require": true,
+        "__dirname": true,
+        "sails": true
+    }
+}

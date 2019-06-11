@@ -1,4 +1,4 @@
-module.exports.demoJob = function (job, cb) {
-    sails.log.info("Job, demo-job is done =>", job.data.myParamKey);
-    cb();
+module.exports = function (job, done) {
+    sails.log.info('Job, demo-job is done =>', job.data.myParamKey);
+    done();
 };
