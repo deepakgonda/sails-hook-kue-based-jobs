@@ -7,4 +7,27 @@ Sails Hook For Jobs Scheduling Based on Kue for sails v1.1.0+. It can be used fo
 [**Kue**](https://automattic.github.io/kue/)
 
 ### Installation and Setup guide
-Will provide shortly
+
+- Step 1:
+    npm i sails-hook-kue-based-jobs
+
+- Step 2:
+    sails lift
+
+This will automatically create a config file in your api/config folder and `jobs` directory in the api folder with some demo job processors. You can customize and add your own if you want.
+
+To schedule a job inside your controller/actions/helpers just follow the job scheduling example at [**Kue Docs**](https://github.com/Automattic/kue#creating-jobs) with only one change i.e you will get the `queue` object from sails global. For example: 
+
+```js
+var job = queue.create('email', {
+    title: 'welcome email for tj'
+  , to: 'tj@learnboost.com'
+  , template: 'welcome-email'
+}).save( function(err){
+   if( !err ) console.log( job.id );
+});
+```
+
+
+
+
