@@ -14,7 +14,7 @@ Sails Hook For Jobs Scheduling Based on Kue for sails v1.1.0+. It can be used fo
 - Step 2:
     sails lift
 
-This will automatically create a config file in your api/config folder and `jobs` directory in the api folder with some demo job processors. You can customize and add your own if you want.
+This will automatically create a config file with name `kue-jobs.js` in your api/config folder and `jobs` directory in the api folder with some demo job processors. You can customize and add your own if you want.
 
 To schedule a job inside your controller/actions/helpers just follow the job scheduling example at [**Kue Docs**](https://github.com/Automattic/kue#creating-jobs) with only one change i.e you will get the `queue` object from sails global. For example: 
 

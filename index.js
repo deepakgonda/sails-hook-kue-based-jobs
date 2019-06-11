@@ -1,8 +1,8 @@
 /**
- * kue-based-jobs hook
- *
- * @docs    :: https://sailsjs.com/docs/concepts/extending-sails/hooks
- */
+* kue-based-jobs hook
+*
+* @docs :: https://sailsjs.com/docs/concepts/extending-sails/hooks
+*/
 
 module.exports = function kueJobs(sails) {
 
@@ -24,11 +24,30 @@ module.exports = function kueJobs(sails) {
 
         defaults: {
             kueJobs: {
-                redisUrl: 'redis://127.0.0.1:6379'
+                redisUrl: 'redis://127.0.0.1:6379',
+                enableApi: false,
             },
         },
 
         configure: async function () {
+
+        },
+
+        initialize: async function () {
+
+            let waitForHooksToBeLoaded = [];
+            if (sails.hooks.orm) {
+                waitForHooksToBeLoaded.push('hook:orm:loaded');
+            }
+
+            if (sails.hooks.pubsub) {
+                waitForHooksToBeLoaded.push('hook:pubsub:loaded');
+            }
+
+            if (sails.hooks.helpers) {
+                waitForHooksToBeLoaded.push('hook:helpers:loaded');
+            }
+
             // Check if configuration file is present, otherwise copy it
             try {
                 const configFilePath = path.join(__dirname, '../../config/kue-jobs.js');
@@ -56,25 +75,7 @@ module.exports = function kueJobs(sails) {
             } catch (err) {
                 sails.log.error(err);
             }
-
-            sails.log.info('[Sails Hook][kueJobs]: Configuration Check Finished');
-
-        },
-
-        initialize: async function () {
-
-            let waitForHooksToBeLoaded = [];
-            if (sails.hooks.orm) {
-                waitForHooksToBeLoaded.push('hook:orm:loaded');
-            }
-
-            if (sails.hooks.pubsub) {
-                waitForHooksToBeLoaded.push('hook:pubsub:loaded');
-            }
-
-            if (sails.hooks.helpers) {
-                waitForHooksToBeLoaded.push('hook:helpers:loaded');
-            }
+            // sails.log.info('[Sails Hook][kueJobs]: Configuration Check Finished');
 
             sails.after(waitForHooksToBeLoaded, function () {
                 loadHook();
@@ -110,21 +111,22 @@ module.exports = function kueJobs(sails) {
             });
 
             // Exposing the Queue Object with sails global
-            sails.queue = Queue;  // can be used as 
+            sails.queue = Queue; // can be used as 
             /******************************************************************
-             sails.queue.create('email', {
-                title: 'Account renewal required',
-                to: 'tj@learnboost.com',
-                template: 'renewal-email'
+            sails.queue.create('email', {
+            title: 'Account renewal required',
+            to: 'tj@learnboost.com',
+            template: 'renewal-email'
             }).delay(milliseconds)
             .priority('high')
             .save();
+            
+            ******************************************************************/
 
-             ******************************************************************/
-
-            Queue._processors = Object.entries(jobProcessors);  // Setting job processors on Queue as array
+            Queue._processors = Object.entries(jobProcessors); // Setting job processors on Queue as array
             startWorker();
             sails.log.info('[Sails Hook][kueJobs]: Initialized Successfully');
+
         } catch (err) {
             sails.log.error('[Sails Hook][kueJobs] : Error in loading Hook', err);
         }
@@ -137,6 +139,13 @@ module.exports = function kueJobs(sails) {
     }
 
     function startProcessors() {
+
+        if (sails.config.kueJobs.enableApi) {
+            kue.app.listen(3000);
+            kue.app.set('title', '[Sails Hook][kueJobs] - Queue Management');
+            sails.log.info('[Sails Hook][kueJobs]: Initialized Web API Interface');
+        }
+
         if (Queue._processors && Array.isArray(Queue._processors)) {
             Queue._processors.forEach(job => {
                 sails.log.debug(`[Sails Hook][kueJobs] Adding jobProcessor: Name: ${job[0]}`);
@@ -145,6 +154,7 @@ module.exports = function kueJobs(sails) {
         } else {
             sails.log.debug('[Sails Hook][kueJobs] jobProcessors aren\'t array or is undefined.');
         }
+
     }
 
     function logJobs() {
