@@ -10,6 +10,7 @@ module.exports = function kueJobs(sails) {
     const fs = require('fs-extra');
     const Job = kue.Job;
     const path = require('path');
+    const cluster = require('cluster');
 
     let Queue = null;
 
@@ -140,7 +141,7 @@ module.exports = function kueJobs(sails) {
 
     function startProcessors() {
 
-        if (sails.config.kueJobs.enableApi) {
+        if (sails.config.kueJobs.enableApi && cluster.isMaster) {
             kue.app.listen(3000);
             kue.app.set('title', '[Sails Hook][kueJobs] - Queue Management');
             sails.log.info('[Sails Hook][kueJobs]: Initialized Web API Interface');
