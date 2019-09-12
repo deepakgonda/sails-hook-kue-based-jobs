@@ -19,7 +19,7 @@ This will automatically create a config file with name `kue-jobs.js` in your api
 To schedule a job inside your controller/actions/helpers just follow the job scheduling example at [**Kue Docs**](https://github.com/Automattic/kue#creating-jobs) with only one change i.e you will get the `queue` object from sails global. For example: 
 
 ```js
-var job = sails.queue.create('email', {
+var job = sails.queue.create('emailJob', {
     title: 'welcome email for tj'
   , to: 'tj@learnboost.com'
   , template: 'welcome-email'
