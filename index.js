@@ -142,9 +142,22 @@ module.exports = function kueJobs(sails) {
     function startProcessors() {
 
         if (sails.config.kueJobs.enableApi && cluster.isMaster) {
-            kue.app.listen(3000);
-            kue.app.set('title', '[Sails Hook][kueJobs] - Queue Management');
-            sails.log.info('[Sails Hook][kueJobs]: Initialized Web API Interface');
+
+            const tcpPortUsed = require('tcp-port-used');
+
+            tcpPortUsed.check(3000, '127.0.0.1')
+                .then(function (inUse) {
+                    if (inUse) {
+                        sails.log.info('[Sails Hook][kueJobs]: Port 3000 is already in use: ' + inUse);
+                    } else {
+                        kue.app.listen(3000);
+                        kue.app.set('title', '[Sails Hook][kueJobs] - Queue Management');
+                        sails.log.info('[Sails Hook][kueJobs]: Initialized Web API Interface');
+                    }
+                }, function (err) {
+                    sails.log.error('[Sails Hook][kueJobs]:', err.message);
+                });
+
         }
 
         if (Queue._processors && Array.isArray(Queue._processors)) {
