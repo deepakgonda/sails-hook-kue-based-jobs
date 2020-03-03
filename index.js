@@ -29,6 +29,7 @@ module.exports = function kueJobs(sails) {
             kueJobs: {
                 redisUrl: 'redis://127.0.0.1:6379',
                 enableApi: false,
+                apiPort: 3000,
                 onlyStartOnWorkers: false,
                 workerEnvName: 'IS_WORKER'
             },
@@ -160,19 +161,18 @@ module.exports = function kueJobs(sails) {
 
             const tcpPortUsed = require('tcp-port-used');
 
-            tcpPortUsed.check(3000, '127.0.0.1')
+            tcpPortUsed.check(sails.config.kueJobs.apiPort, '127.0.0.1')
                 .then((inUse) => {
                     if (inUse) {
-                        sails.log.info('[Sails Hook][kueJobs]: Port 3000 is already in use: ' + inUse);
+                        sails.log.info(`[Sails Hook][kueJobs]: Port ${sails.config.kueJobs.apiPort} is already in use: ` + inUse);
                     } else {
-                        kue.app.listen(3000);
+                        kue.app.listen(sails.config.kueJobs.apiPort);
                         kue.app.set('title', '[Sails Hook][kueJobs] - Queue Management');
-                        sails.log.info('[Sails Hook][kueJobs]: Initialized Web API Interface');
+                        sails.log.debug(`[Sails Hook][kueJobs]: Initialized Web API Interface on port ${sails.config.kueJobs.apiPort}`);
                     }
                 }, (err) => {
                     sails.log.error('[Sails Hook][kueJobs]:', err.message);
                 });
-
         }
 
     }
