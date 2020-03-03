@@ -1,6 +1,6 @@
 {
   "name": "sails-hook-kue-based-jobs",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Sails Hook For Jobs Scheduling Based on Kue",
   "main": "index.js",
   "scripts": {

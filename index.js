@@ -14,6 +14,8 @@ module.exports = function kueJobs(sails) {
 
     let Queue = null;
 
+    let shouldStartKueJobsOnThisProcess = false;
+
 
     /**
     * Build the hook definition.
@@ -27,11 +29,23 @@ module.exports = function kueJobs(sails) {
             kueJobs: {
                 redisUrl: 'redis://127.0.0.1:6379',
                 enableApi: false,
+                onlyStartOnWorkers: false,
+                workerEnvName: 'IS_WORKER'
             },
         },
 
         configure: async function () {
-
+            let onlyStartOnWorkers = sails.config.kueJobs.onlyStartOnWorkers;
+            if (onlyStartOnWorkers) {
+                sails.log.debug('[Sails Hook][kueJobs] : Set to run only for process which have worker env variable set to true.');
+                let isWorker = process.env[sails.config.kueJobs.workerEnvName];
+                sails.log.debug('[Sails Hook][kueJobs] : Is Worker:', isWorker);
+                if (isWorker || isWorker == 'true') {
+                    shouldStartKueJobsOnThisProcess = true;
+                }
+            } else {
+                shouldStartKueJobsOnThisProcess = true;
+            }
         },
 
         initialize: async function () {
@@ -55,9 +69,9 @@ module.exports = function kueJobs(sails) {
                 const exists = await fs.pathExists(configFilePath);
                 if (!exists) {
                     await fs.copy(path.join(__dirname, 'resources/config/kue-jobs.js'), configFilePath);
-                    sails.log.debug('[Sails Hook][kueJobs] : Success Adding the configuration file.');
+                    sails.log.info('[Sails Hook][kueJobs] : Success Adding the configuration file.');
                 } else {
-                    sails.log.debug('[Sails Hook][kueJobs] : Configuration file already present.');
+                    sails.log.info('[Sails Hook][kueJobs] : Configuration file already present.');
                 }
             } catch (err) {
                 sails.log.error(err);
@@ -69,9 +83,9 @@ module.exports = function kueJobs(sails) {
                 const exists = await fs.pathExists(jobsDirPath);
                 if (!exists) {
                     await fs.copy(path.join(__dirname, 'resources/jobs'), jobsDirPath);
-                    sails.log.debug('[Sails Hook][kueJobs] : Success copying jobs directory.');
+                    sails.log.info('[Sails Hook][kueJobs] : Success copying jobs directory.');
                 } else {
-                    sails.log.debug('[Sails Hook][kueJobs] : jobs directory already present.');
+                    sails.log.info('[Sails Hook][kueJobs] : jobs directory already present.');
                 }
             } catch (err) {
                 sails.log.error(err);
@@ -114,7 +128,7 @@ module.exports = function kueJobs(sails) {
             // Exposing the Queue Object with sails global
             sails.queue = Queue; // can be used as 
             /******************************************************************
-            sails.queue.create('email', {
+            sails.queue.create('emailJob', {
             title: 'Account renewal required',
             to: 'tj@learnboost.com',
             template: 'renewal-email'
@@ -135,18 +149,19 @@ module.exports = function kueJobs(sails) {
     }
 
     function startWorker() {
-        logJobs();
-        startProcessors();
-    }
-
-    function startProcessors() {
+        if (shouldStartKueJobsOnThisProcess) {
+            logJobs();
+            startProcessors();
+        } else {
+            sails.log.debug('[Sails Hook][kueJobs]: Not Initiating Job Processors b/c it is not a worker process.');
+        }
 
         if (sails.config.kueJobs.enableApi && cluster.isMaster) {
 
             const tcpPortUsed = require('tcp-port-used');
 
             tcpPortUsed.check(3000, '127.0.0.1')
-                .then(function (inUse) {
+                .then((inUse) => {
                     if (inUse) {
                         sails.log.info('[Sails Hook][kueJobs]: Port 3000 is already in use: ' + inUse);
                     } else {
@@ -154,11 +169,15 @@ module.exports = function kueJobs(sails) {
                         kue.app.set('title', '[Sails Hook][kueJobs] - Queue Management');
                         sails.log.info('[Sails Hook][kueJobs]: Initialized Web API Interface');
                     }
-                }, function (err) {
+                }, (err) => {
                     sails.log.error('[Sails Hook][kueJobs]:', err.message);
                 });
 
         }
+
+    }
+
+    function startProcessors() {
 
         if (Queue._processors && Array.isArray(Queue._processors)) {
             Queue._processors.forEach(job => {

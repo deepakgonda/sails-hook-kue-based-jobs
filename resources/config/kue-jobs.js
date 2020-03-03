@@ -20,6 +20,8 @@ module.exports.kueJobs = {
  
   ***************************************************************************/
   redisUrl: 'redis://127.0.0.1:6379',
-  enableApi: true,        // Will expose Job Status APi's on port 3000
+  enableApi: true,                 // Will expose Job Status APi's on port 3000
+  onlyStartOnWorkers: true,        // This will make kue start for only those node apps which have workerEnvName set to true
+  workerEnvName: 'IS_WORKER'       // This is ENV name which should be present on workers...
 
 };
