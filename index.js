@@ -15,6 +15,7 @@ module.exports = function kueJobs(sails) {
     let Queue = null;
 
     let shouldStartKueJobsOnThisProcess = false;
+    let shouldStartWebApiOnThisProcess = false;
 
 
     /**
@@ -30,15 +31,16 @@ module.exports = function kueJobs(sails) {
                 redisUrl: 'redis://127.0.0.1:6379',
                 enableApi: false,
                 apiPort: 3000,
+                webApiEnvName: 'IS_MASTER',
                 onlyStartOnWorkers: false,
-                workerEnvName: 'IS_WORKER'
+                workerEnvName: 'IS_WORKER',
             },
         },
 
         configure: async function () {
             let onlyStartOnWorkers = sails.config.kueJobs.onlyStartOnWorkers;
             if (onlyStartOnWorkers) {
-                sails.log.debug('[Sails Hook][kueJobs] : Set to run only for process which have worker env variable set to true.');
+                sails.log.info('[Sails Hook][kueJobs] : Set to run only for process which have worker env variable set to true.');
                 let isWorker = process.env[sails.config.kueJobs.workerEnvName];
                 sails.log.debug('[Sails Hook][kueJobs] : Is Worker:', isWorker);
                 if (isWorker || isWorker == 'true') {
@@ -47,6 +49,13 @@ module.exports = function kueJobs(sails) {
             } else {
                 shouldStartKueJobsOnThisProcess = true;
             }
+
+            let isMaster = process.env[sails.config.kueJobs.webApiEnvName];
+            sails.log.debug('[Sails Hook][kueJobs] : Is Master:', isMaster);
+            if (isMaster || isMaster == 'true') {
+                shouldStartWebApiOnThisProcess = true;
+            }
+
         },
 
         initialize: async function () {
@@ -117,7 +126,7 @@ module.exports = function kueJobs(sails) {
                 }
             });
 
-            sails.log.debug('[Sails Hook][kueJobs] jobProcessors: ', jobProcessors);
+            sails.log.info('[Sails Hook][kueJobs] jobProcessors: ', jobProcessors);
 
             let redisUrl = sails.config.kueJobs.redisUrl;
             sails.log.debug('[Sails Hook][kueJobs] : Redis Url: ', redisUrl);
@@ -141,6 +150,7 @@ module.exports = function kueJobs(sails) {
 
             Queue._processors = Object.entries(jobProcessors); // Setting job processors on Queue as array
             startWorker();
+            startWebUi();
             sails.log.info('[Sails Hook][kueJobs]: Initialized Successfully');
 
         } catch (err) {
@@ -149,30 +159,33 @@ module.exports = function kueJobs(sails) {
 
     }
 
-    function startWorker() {
-        if (shouldStartKueJobsOnThisProcess) {
-            logJobs();
-            startProcessors();
-        } else {
-            sails.log.debug('[Sails Hook][kueJobs]: Not Initiating Job Processors b/c it is not a worker process.');
-        }
-
-        if (sails.config.kueJobs.enableApi && cluster.isMaster) {
+    function startWebUi() {
+        if (sails.config.kueJobs.enableApi && shouldStartWebApiOnThisProcess) {
 
             const tcpPortUsed = require('tcp-port-used');
 
             tcpPortUsed.check(sails.config.kueJobs.apiPort, '127.0.0.1')
                 .then((inUse) => {
                     if (inUse) {
-                        sails.log.info(`[Sails Hook][kueJobs]: Port ${sails.config.kueJobs.apiPort} is already in use: ` + inUse);
+                        sails.log.debug(`[Sails Hook][kueJobs]: Port ${sails.config.kueJobs.apiPort} is already in use: ` + inUse);
                     } else {
                         kue.app.listen(sails.config.kueJobs.apiPort);
                         kue.app.set('title', '[Sails Hook][kueJobs] - Queue Management');
                         sails.log.debug(`[Sails Hook][kueJobs]: Initialized Web API Interface on port ${sails.config.kueJobs.apiPort}`);
                     }
                 }, (err) => {
-                    sails.log.error('[Sails Hook][kueJobs]:', err.message);
+                    sails.log.info('[Sails Hook][kueJobs]:', err.message);
                 });
+        }
+    }
+
+
+    function startWorker() {
+        if (shouldStartKueJobsOnThisProcess) {
+            logJobs();
+            startProcessors();
+        } else {
+            sails.log.debug('[Sails Hook][kueJobs]: Not Initiating Job Processors b/c it is not a worker process.');
         }
 
     }
