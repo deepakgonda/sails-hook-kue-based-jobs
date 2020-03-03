@@ -28,21 +28,21 @@ var job = sails.queue.create('emailJob', {
 });
 ```
 
-# Config Options and their description
+### Config Options and their description
 When you install this hook in your sails project, it first start it detects if configuration file is present in your sails config directory or not, if not, then it will create config file with default options, which can be edited later. Options are:
 
-- redisUrl:
+- `redisUrl`:
     This is url used to connect with redis, if this is not provided default value 'redis://127.0.0.1:6379' will be used.
 
-- enableApi:
+- `enableApi`:
     When this is true, a small web app is started on port 3000, where you can check status of Jobs
 
-- apiPort:
+- `apiPort`:
     You can specify different for the web app.
 
-- onlyStartOnWorkers:
+- `onlyStartOnWorkers`:
     This will make kue jobs processors start on only those node process, which have "workerEnvName" set to true
 
-- workerEnvName:
+- `workerEnvName`:
     This is ENV name which should be present on workers. By default it is 'IS_WORKER'        
 
