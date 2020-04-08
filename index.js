@@ -6,11 +6,10 @@
 
 module.exports = function kueJobs(sails) {
 
-    const kue = require("kue");
+    const kue = require('kue-unique');
     const fs = require('fs-extra');
     const Job = kue.Job;
     const path = require('path');
-    const cluster = require('cluster');
 
     let Queue = null;
 
@@ -136,7 +135,7 @@ module.exports = function kueJobs(sails) {
             });
 
             // Exposing the Queue Object with sails global
-            sails.queue = Queue; // can be used as 
+            sails.queue = Queue; // can be used as
             /******************************************************************
             sails.queue.create('emailJob', {
             title: 'Account renewal required',
@@ -145,7 +144,7 @@ module.exports = function kueJobs(sails) {
             }).delay(milliseconds)
             .priority('high')
             .save();
-            
+
             ******************************************************************/
 
             Queue._processors = Object.entries(jobProcessors); // Setting job processors on Queue as array
