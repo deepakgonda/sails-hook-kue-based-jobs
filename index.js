@@ -136,7 +136,9 @@ module.exports = function kueJobs(sails) {
             });
 
             // Exposing the Queue Object with sails global
-            sails.queue = Queue; // can be used as 
+            sails.queue = Queue; // can be used as
+            sails.job = Job; // can be used as 
+             
             /******************************************************************
             sails.queue.create('emailJob', {
             title: 'Account renewal required',

@@ -1,6 +1,6 @@
 {
   "name": "sails-hook-kue-based-jobs",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Sails Hook For Jobs Scheduling Based on Kue",
   "main": "index.js",
   "scripts": {
@@ -21,6 +21,8 @@
     "jobs",
     "queue",
     "kue",
+    "sails queue",
+    "sails job",
     "background-job",
     "long-running-task"
   ],
