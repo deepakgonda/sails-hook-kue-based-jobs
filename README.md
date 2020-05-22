@@ -70,4 +70,4 @@ When you install this hook in your sails project, it first start it detects if c
 
 * `markStuckJobAsFailPeriod` :
 
-    Time in milliseconds after the active job which is somehow stuck will be marked as failed.     
+    Time in milliseconds after the active job which is somehow stuck will be marked as failed. Default value set to 5 Mins.  

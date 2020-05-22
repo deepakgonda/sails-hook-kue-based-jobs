@@ -10,12 +10,11 @@ module.exports = function kueJobs(sails) {
     const fs = require('fs-extra');
     const Job = kue.Job;
     const path = require('path');
-    const cluster = require('cluster');
 
     let Queue = null;
 
     let shouldStartKueJobsOnThisProcess = false;
-    let shouldStartWebApiOnThisProcess = false;
+    let isMasterProcess = false;
 
     let stuckJobsWatchInterval = 30 * 1000;
 
@@ -56,7 +55,7 @@ module.exports = function kueJobs(sails) {
             let isMaster = process.env[sails.config.kueJobs.webApiEnvName];
             sails.log.debug('[Sails Hook][kueJobs] : Is Master:', isMaster);
             if (isMaster || isMaster == 'true') {
-                shouldStartWebApiOnThisProcess = true;
+                isMasterProcess = true;
             }
 
         },
@@ -142,21 +141,14 @@ module.exports = function kueJobs(sails) {
             sails.queue = Queue; // can be used as
             sails.job = Job; // can be used as 
 
-            /******************************************************************
-            sails.queue.create('emailJob', {
-            title: 'Account renewal required',
-            to: 'tj@learnboost.com',
-            template: 'renewal-email'
-            }).delay(milliseconds)
-            .priority('high')
-            .save();
-            
-            ******************************************************************/
-
             Queue._processors = Object.entries(jobProcessors); // Setting job processors on Queue as array
             startWorker();
-            startWebUi();
-            watchStuckJobsInActiveState();
+
+            if (isMasterProcess) {
+                logJobs();
+                startWebUi();
+                watchStuckJobsInActiveState();
+            }
             sails.log.info('[Sails Hook][kueJobs]: Initialized Successfully');
 
         } catch (err) {
@@ -165,8 +157,18 @@ module.exports = function kueJobs(sails) {
 
     }
 
+
+    function startWorker() {
+        if (shouldStartKueJobsOnThisProcess) {
+            startProcessors();
+        } else {
+            sails.log.debug('[Sails Hook][kueJobs]: Not Initiating Job Processors b/c it is not a worker process.');
+        }
+    }
+
+
     function startWebUi() {
-        if (sails.config.kueJobs.enableApi && shouldStartWebApiOnThisProcess) {
+        if (sails.config.kueJobs.enableApi) {
 
             const tcpPortUsed = require('tcp-port-used');
 
@@ -186,16 +188,6 @@ module.exports = function kueJobs(sails) {
     }
 
 
-    function startWorker() {
-        if (shouldStartKueJobsOnThisProcess) {
-            logJobs();
-            startProcessors();
-        } else {
-            sails.log.debug('[Sails Hook][kueJobs]: Not Initiating Job Processors b/c it is not a worker process.');
-        }
-
-    }
-
     function startProcessors() {
 
         if (Queue._processors && Array.isArray(Queue._processors)) {
@@ -208,6 +200,7 @@ module.exports = function kueJobs(sails) {
         }
 
     }
+
 
     function logJobs() {
         Queue.on("job enqueue", function (id) {
@@ -229,6 +222,7 @@ module.exports = function kueJobs(sails) {
             });
         });
     }
+
 
     function watchStuckJobsInActiveState() {
 
