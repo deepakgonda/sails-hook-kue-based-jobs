@@ -66,3 +66,8 @@ When you install this hook in your sails project, it first start it detects if c
 * `workerEnvName` :
 
     This is ENV name which should be present on workers. By default it is `IS_WORKER` 
+
+
+* `markStuckJobAsFailPeriod` :
+
+    Time in milliseconds after the active job which is somehow stuck will be marked as failed.     

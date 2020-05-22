@@ -1,6 +1,6 @@
 {
   "name": "sails-hook-kue-based-jobs",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "Sails Hook For Jobs Scheduling Based on Kue",
   "main": "index.js",
   "scripts": {
@@ -33,6 +33,7 @@
   },
   "homepage": "https://github.com/deepakgonda/sails-hook-kue-based-jobs/blob/master/README.md",
   "dependencies": {
+    "async-parallel": "^1.2.3",
     "fs-extra": "^8.1.0",
     "kue": "^0.11.6",
     "require-all": "^3.0.0",

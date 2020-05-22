@@ -17,6 +17,8 @@ module.exports = function kueJobs(sails) {
     let shouldStartKueJobsOnThisProcess = false;
     let shouldStartWebApiOnThisProcess = false;
 
+    let stuckJobsWatchInterval = 30 * 1000;
+
 
     /**
     * Build the hook definition.
@@ -34,6 +36,7 @@ module.exports = function kueJobs(sails) {
                 webApiEnvName: 'IS_MASTER',
                 onlyStartOnWorkers: false,
                 workerEnvName: 'IS_WORKER',
+                markStuckJobAsFailPeriod: 5 * 60 * 1000
             },
         },
 
@@ -129,7 +132,7 @@ module.exports = function kueJobs(sails) {
             sails.log.info('[Sails Hook][kueJobs] jobProcessors: ', jobProcessors);
 
             let redisUrl = sails.config.kueJobs.redisUrl;
-            sails.log.debug('[Sails Hook][kueJobs] : Redis Url: ', redisUrl);
+            sails.log.info('[Sails Hook][kueJobs] : Redis Url: ', redisUrl);
             // Create job queue on Jobs service
             Queue = kue.createQueue({
                 redis: redisUrl
@@ -138,7 +141,7 @@ module.exports = function kueJobs(sails) {
             // Exposing the Queue Object with sails global
             sails.queue = Queue; // can be used as
             sails.job = Job; // can be used as 
-             
+
             /******************************************************************
             sails.queue.create('emailJob', {
             title: 'Account renewal required',
@@ -153,6 +156,7 @@ module.exports = function kueJobs(sails) {
             Queue._processors = Object.entries(jobProcessors); // Setting job processors on Queue as array
             startWorker();
             startWebUi();
+            watchStuckJobsInActiveState();
             sails.log.info('[Sails Hook][kueJobs]: Initialized Successfully');
 
         } catch (err) {
@@ -224,6 +228,53 @@ module.exports = function kueJobs(sails) {
                 sails.log.warn("Job '" + job.type + "' (ID: " + id + ") failed. Error: " + job._error);
             });
         });
+    }
+
+    function watchStuckJobsInActiveState() {
+
+        sails.log.debug('[Sails Hook][kueJobs]: watchStuckJobsInActiveState: Setting Up Listener');
+
+        setInterval(async () => {
+
+            // first check the active job list (hopefully this is relatively small and cheap)
+            // if this takes longer than a single "interval" then we should consider using
+            // setTimeouts
+            let activeJobIds = await new Promise((resolve, reject) => {
+                sails.queue.active((err, ids) => {
+                    if (err) {
+                        reject(err);
+                    }
+                    resolve(ids);
+                });
+            });
+            sails.log.info('[Sails Hook][kueJobs]: watchStuckJobsInActiveState: Active Jobs:', activeJobIds);
+
+            if (activeJobIds && activeJobIds.length) {
+
+                const Parallel = require('async-parallel');
+                await Parallel.map(activeJobIds, async id => {
+
+                    let job = await new Promise((resolve, reject) => {
+                        sails.job.get(id, (err, job) => {
+                            if (err) {
+                                reject(err);
+                            }
+
+                            resolve(job);
+                        });
+                    });
+
+                    var lastUpdate = + Date.now() - job.updated_at;
+                    if (lastUpdate > sails.config.kueJobs.markStuckJobAsFailPeriod) {
+                        sails.log.debug('[Sails Hook][kueJobs] : Job: ' + job.id + ', ' + job.type + ' , has\`t been updated in ' + lastUpdate + ' , It was Last Updated at ' + job.updated_at + ' and it is stuck active state');
+                        job.state('failed').save();
+                        // rescheduleJob(job, cb);  // either reschedule (re-attempt?) or remove the job.
+                    }
+                });
+
+            }
+
+        }, stuckJobsWatchInterval);
     }
 
 };
