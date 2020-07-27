@@ -16,7 +16,8 @@ module.exports = function kueJobs(sails) {
     let shouldStartKueJobsOnThisProcess = false;
     let isMasterProcess = false;
 
-    let stuckJobsWatchInterval = 30 * 1000;
+    let stuckJobsWatchInterval = 2 * 1000;
+    let removeCompletedJobsWatchInterval = 2 * 1000;
 
 
     /**
@@ -35,7 +36,8 @@ module.exports = function kueJobs(sails) {
                 webApiEnvName: 'IS_MASTER',
                 onlyStartOnWorkers: false,
                 workerEnvName: 'IS_WORKER',
-                markStuckJobAsFailPeriod: 5 * 60 * 1000
+                markStuckJobAsFailPeriod: 5 * 60 * 1000,
+                removeCompleteJobPeriod: 24 * 60 * 1000,
             },
         },
 
@@ -148,6 +150,7 @@ module.exports = function kueJobs(sails) {
                 logJobs();
                 startWebUi();
                 watchStuckJobsInActiveState();
+                removeCompletedJobAfterSomeTime();
             }
             sails.log.info('[Sails Hook][kueJobs]: Initialized Successfully');
 
@@ -269,6 +272,54 @@ module.exports = function kueJobs(sails) {
             }
 
         }, stuckJobsWatchInterval);
+    }
+
+
+    function removeCompletedJobAfterSomeTime() {
+
+        sails.log.debug('[Sails Hook][kueJobs]: removeCompletedJobAfterSomeTime: Setting Up Listener');
+
+        setInterval(async () => {
+
+            let completeJobIds = await new Promise((resolve, reject) => {
+                sails.queue.complete((err, ids) => {
+                    if (err) {
+                        reject(err);
+                    }
+                    resolve(ids);
+                });
+            });
+            sails.log.debug('[Sails Hook][kueJobs]: removeCompletedJobAfterSomeTime: Completed Jobs Total:', completeJobIds.length);
+
+            if (completeJobIds.length > 101) {
+                completeJobIds = completeJobIds.slice(1, 100);
+            }
+
+            if (completeJobIds && completeJobIds.length) {
+
+                const Parallel = require('async-parallel');
+                await Parallel.map(completeJobIds, async id => {
+
+                    let job = await new Promise((resolve, reject) => {
+                        sails.job.get(id, (err, job) => {
+                            if (err) {
+                                reject(err);
+                            }
+
+                            resolve(job);
+                        });
+                    });
+
+                    let lastUpdate = + Date.now() - job.updated_at;
+                    if (lastUpdate > sails.config.kueJobs.removeCompleteJobPeriod) {
+                        sails.log.debug('[Sails Hook][kueJobs] : Job: ' + job.id + ', ' + job.type + ' , is completed at : ' + lastUpdate + ', Now we should remove it...');
+                        job.remove();
+                    }
+                });
+
+            }
+
+        }, removeCompletedJobsWatchInterval);
     }
 
 };
