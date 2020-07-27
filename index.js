@@ -16,9 +16,6 @@ module.exports = function kueJobs(sails) {
     let shouldStartKueJobsOnThisProcess = false;
     let isMasterProcess = false;
 
-    let stuckJobsWatchInterval = 2 * 1000;
-    let removeCompletedJobsWatchInterval = 2 * 1000;
-
 
     /**
     * Build the hook definition.
@@ -36,6 +33,7 @@ module.exports = function kueJobs(sails) {
                 webApiEnvName: 'IS_MASTER',
                 onlyStartOnWorkers: false,
                 workerEnvName: 'IS_WORKER',
+                jobListenerIntervals: 5 * 60 * 1000,
                 markStuckJobAsFailPeriod: 5 * 60 * 1000,
                 removeCompleteJobPeriod: 24 * 60 * 1000,
             },
@@ -47,7 +45,7 @@ module.exports = function kueJobs(sails) {
                 sails.log.info('[Sails Hook][kueJobs] : Set to run only for process which have worker env variable set to true.');
                 let isWorker = process.env[sails.config.kueJobs.workerEnvName];
                 sails.log.debug('[Sails Hook][kueJobs] : Is Worker:', isWorker);
-                if (isWorker || isWorker == 'true') {
+                if (isWorker == 'true') {
                     shouldStartKueJobsOnThisProcess = true;
                 }
             } else {
@@ -56,9 +54,11 @@ module.exports = function kueJobs(sails) {
 
             let isMaster = process.env[sails.config.kueJobs.webApiEnvName];
             sails.log.debug('[Sails Hook][kueJobs] : Is Master:', isMaster);
-            if (isMaster || isMaster == 'true') {
+            if (isMaster == 'true') {
                 isMasterProcess = true;
             }
+            sails.log.debug('[Sails Hook][kueJobs] : Is Master Process:', isMasterProcess);
+            // sails.log.debug('[Sails Hook][kueJobs] : shouldStartKueJobsOnThisProcess (as worker) :', shouldStartKueJobsOnThisProcess);
 
         },
 
@@ -271,7 +271,7 @@ module.exports = function kueJobs(sails) {
 
             }
 
-        }, stuckJobsWatchInterval);
+        }, sails.config.kueJobs.jobListenerIntervals);
     }
 
 
@@ -319,7 +319,7 @@ module.exports = function kueJobs(sails) {
 
             }
 
-        }, removeCompletedJobsWatchInterval);
+        }, sails.config.kueJobs.jobListenerIntervals);
     }
 
 };
