@@ -19,7 +19,7 @@ Sails Hook For Jobs Scheduling Based on Kue for sails v1.1.0+. It can be used fo
 
 This will automatically create a config file with name `kue-jobs.js` in your api/config folder and `jobs` directory in the api folder with some demo job processors. You can customize and add your own if you want.
 
-To schedule a job inside your controller/actions/helpers just follow the job scheduling example at [**Kue Docs**](https://github.com/Automattic/kue#creating-jobs) with only one change i.e you will get the `queue` object from sails global. For example: 
+To schedule a job inside your controller/actions/helpers just follow the job scheduling example at [**Kue Docs**](https://github.com/Automattic/kue#creating-jobs) with only one change i.e you will get the `queue` object from sails global. For example:
 
 ``` js
 var job = sails.queue.create('emailJob', {
@@ -43,6 +43,8 @@ sails.job.get(jobId, (err, job) => {
 });
 ```
 
+You can ensure uniqueness of a job by using the `unique` method. See https://github.com/lykmapipo/kue-unique for further informations about job uniqueness.
+
 ### Config Options and their description
 
 When you install this hook in your sails project, it first start it detects if configuration file is present in your sails config directory or not, if not, then it will create config file with default options, which can be edited later. Options are:
@@ -62,6 +64,7 @@ When you install this hook in your sails project, it first start it detects if c
 * `onlyStartOnWorkers` :
 
     This will make kue jobs processors start on only those node process, which have `workerEnvName` set to true
+
 
 * `workerEnvName` :
 

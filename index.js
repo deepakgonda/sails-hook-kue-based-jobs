@@ -6,7 +6,7 @@
 
 module.exports = function kueJobs(sails) {
 
-    const kue = require("kue");
+    const kue = require('kue-unique');
     const fs = require('fs-extra');
     const Job = kue.Job;
     const path = require('path');

@@ -1,11 +1,8 @@
 {
   "name": "sails-hook-kue-based-jobs",
-  "version": "1.0.16",
+  "version": "1.1.0",
   "description": "Sails Hook For Jobs Scheduling Based on Kue",
   "main": "index.js",
-  "scripts": {
-    "test": "mocha --reporter spec --exit"
-  },
   "sails": {
     "isHook": true,
     "hookName": "kue-jobs"
@@ -36,6 +33,7 @@
     "async-parallel": "^1.2.3",
     "fs-extra": "^8.1.0",
     "kue": "^0.11.6",
+    "kue-unique": "^1.0.31",
     "require-all": "^3.0.0",
     "tcp-port-used": "^1.0.1"
   },
