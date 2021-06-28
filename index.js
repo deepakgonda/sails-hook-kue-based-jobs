@@ -14,7 +14,7 @@ module.exports = function kueJobs(sails) {
     let Queue = null;
 
     let shouldStartKueJobsOnThisProcess = false;
-    let shouldStartWebApiOnThisProcess = false;
+    let isMasterProcess = false;
 
 
     /**
@@ -33,6 +33,9 @@ module.exports = function kueJobs(sails) {
                 webApiEnvName: 'IS_MASTER',
                 onlyStartOnWorkers: false,
                 workerEnvName: 'IS_WORKER',
+                jobListenerIntervals: 5 * 60 * 1000,
+                markStuckJobAsFailPeriod: 5 * 60 * 1000,
+                removeCompleteJobPeriod: 24 * 60 * 1000,
             },
         },
 
@@ -42,7 +45,7 @@ module.exports = function kueJobs(sails) {
                 sails.log.info('[Sails Hook][kueJobs] : Set to run only for process which have worker env variable set to true.');
                 let isWorker = process.env[sails.config.kueJobs.workerEnvName];
                 sails.log.debug('[Sails Hook][kueJobs] : Is Worker:', isWorker);
-                if (isWorker || isWorker == 'true') {
+                if (isWorker == 'true') {
                     shouldStartKueJobsOnThisProcess = true;
                 }
             } else {
@@ -51,9 +54,11 @@ module.exports = function kueJobs(sails) {
 
             let isMaster = process.env[sails.config.kueJobs.webApiEnvName];
             sails.log.debug('[Sails Hook][kueJobs] : Is Master:', isMaster);
-            if (isMaster || isMaster == 'true') {
-                shouldStartWebApiOnThisProcess = true;
+            if (isMaster == 'true') {
+                isMasterProcess = true;
             }
+            sails.log.debug('[Sails Hook][kueJobs] : Is Master Process:', isMasterProcess);
+            // sails.log.debug('[Sails Hook][kueJobs] : shouldStartKueJobsOnThisProcess (as worker) :', shouldStartKueJobsOnThisProcess);
 
         },
 
@@ -128,7 +133,7 @@ module.exports = function kueJobs(sails) {
             sails.log.info('[Sails Hook][kueJobs] jobProcessors: ', jobProcessors);
 
             let redisUrl = sails.config.kueJobs.redisUrl;
-            sails.log.debug('[Sails Hook][kueJobs] : Redis Url: ', redisUrl);
+            sails.log.info('[Sails Hook][kueJobs] : Redis Url: ', redisUrl);
             // Create job queue on Jobs service
             Queue = kue.createQueue({
                 redis: redisUrl
@@ -136,20 +141,17 @@ module.exports = function kueJobs(sails) {
 
             // Exposing the Queue Object with sails global
             sails.queue = Queue; // can be used as
-            /******************************************************************
-            sails.queue.create('emailJob', {
-            title: 'Account renewal required',
-            to: 'tj@learnboost.com',
-            template: 'renewal-email'
-            }).delay(milliseconds)
-            .priority('high')
-            .save();
-
-            ******************************************************************/
+            sails.job = Job; // can be used as 
 
             Queue._processors = Object.entries(jobProcessors); // Setting job processors on Queue as array
             startWorker();
-            startWebUi();
+
+            if (isMasterProcess) {
+                logJobs();
+                startWebUi();
+                watchStuckJobsInActiveState();
+                removeCompletedJobAfterSomeTime();
+            }
             sails.log.info('[Sails Hook][kueJobs]: Initialized Successfully');
 
         } catch (err) {
@@ -158,8 +160,18 @@ module.exports = function kueJobs(sails) {
 
     }
 
+
+    function startWorker() {
+        if (shouldStartKueJobsOnThisProcess) {
+            startProcessors();
+        } else {
+            sails.log.debug('[Sails Hook][kueJobs]: Not Initiating Job Processors b/c it is not a worker process.');
+        }
+    }
+
+
     function startWebUi() {
-        if (sails.config.kueJobs.enableApi && shouldStartWebApiOnThisProcess) {
+        if (sails.config.kueJobs.enableApi) {
 
             const tcpPortUsed = require('tcp-port-used');
 
@@ -179,16 +191,6 @@ module.exports = function kueJobs(sails) {
     }
 
 
-    function startWorker() {
-        if (shouldStartKueJobsOnThisProcess) {
-            logJobs();
-            startProcessors();
-        } else {
-            sails.log.debug('[Sails Hook][kueJobs]: Not Initiating Job Processors b/c it is not a worker process.');
-        }
-
-    }
-
     function startProcessors() {
 
         if (Queue._processors && Array.isArray(Queue._processors)) {
@@ -201,6 +203,7 @@ module.exports = function kueJobs(sails) {
         }
 
     }
+
 
     function logJobs() {
         Queue.on("job enqueue", function (id) {
@@ -221,6 +224,102 @@ module.exports = function kueJobs(sails) {
                 sails.log.warn("Job '" + job.type + "' (ID: " + id + ") failed. Error: " + job._error);
             });
         });
+    }
+
+
+    function watchStuckJobsInActiveState() {
+
+        sails.log.debug('[Sails Hook][kueJobs]: watchStuckJobsInActiveState: Setting Up Listener');
+
+        setInterval(async () => {
+
+            // first check the active job list (hopefully this is relatively small and cheap)
+            // if this takes longer than a single "interval" then we should consider using
+            // setTimeouts
+            let activeJobIds = await new Promise((resolve, reject) => {
+                sails.queue.active((err, ids) => {
+                    if (err) {
+                        reject(err);
+                    }
+                    resolve(ids);
+                });
+            });
+            sails.log.info('[Sails Hook][kueJobs]: watchStuckJobsInActiveState: Active Jobs:', activeJobIds);
+
+            if (activeJobIds && activeJobIds.length) {
+
+                const Parallel = require('async-parallel');
+                await Parallel.map(activeJobIds, async id => {
+
+                    let job = await new Promise((resolve, reject) => {
+                        sails.job.get(id, (err, job) => {
+                            if (err) {
+                                reject(err);
+                            }
+
+                            resolve(job);
+                        });
+                    });
+
+                    var lastUpdate = + Date.now() - job.updated_at;
+                    if (lastUpdate > sails.config.kueJobs.markStuckJobAsFailPeriod) {
+                        sails.log.debug('[Sails Hook][kueJobs] : Job: ' + job.id + ', ' + job.type + ' , has\`t been updated in ' + lastUpdate + ' , It was Last Updated at ' + job.updated_at + ' and it is stuck active state');
+                        job.state('failed').save();
+                        // rescheduleJob(job, cb);  // either reschedule (re-attempt?) or remove the job.
+                    }
+                });
+
+            }
+
+        }, sails.config.kueJobs.jobListenerIntervals);
+    }
+
+
+    function removeCompletedJobAfterSomeTime() {
+
+        sails.log.debug('[Sails Hook][kueJobs]: removeCompletedJobAfterSomeTime: Setting Up Listener');
+
+        setInterval(async () => {
+
+            let completeJobIds = await new Promise((resolve, reject) => {
+                sails.queue.complete((err, ids) => {
+                    if (err) {
+                        reject(err);
+                    }
+                    resolve(ids);
+                });
+            });
+            sails.log.debug('[Sails Hook][kueJobs]: removeCompletedJobAfterSomeTime: Completed Jobs Total:', completeJobIds.length);
+
+            if (completeJobIds.length > 101) {
+                completeJobIds = completeJobIds.slice(1, 100);
+            }
+
+            if (completeJobIds && completeJobIds.length) {
+
+                const Parallel = require('async-parallel');
+                await Parallel.map(completeJobIds, async id => {
+
+                    let job = await new Promise((resolve, reject) => {
+                        sails.job.get(id, (err, job) => {
+                            if (err) {
+                                reject(err);
+                            }
+
+                            resolve(job);
+                        });
+                    });
+
+                    let lastUpdate = + Date.now() - job.updated_at;
+                    if (lastUpdate > sails.config.kueJobs.removeCompleteJobPeriod) {
+                        sails.log.debug('[Sails Hook][kueJobs] : Job: ' + job.id + ', ' + job.type + ' , is completed at : ' + lastUpdate + ', Now we should remove it...');
+                        job.remove();
+                    }
+                });
+
+            }
+
+        }, sails.config.kueJobs.jobListenerIntervals);
     }
 
 };

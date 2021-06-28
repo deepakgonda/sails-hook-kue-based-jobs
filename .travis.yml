@@ -1,0 +1,10 @@
+language: node_js
+node_js:
+  - "12.16"
+
+deploy:
+  provider: npm
+  email: "deepakpandeygonda@gmail.com"
+  api_key: "$NPM_ACCESS_TOKEN"
+  on:
+    branch: master
