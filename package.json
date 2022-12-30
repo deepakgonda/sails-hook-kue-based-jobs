@@ -40,7 +40,7 @@
     "tcp-port-used": "^1.0.1"
   },
   "devDependencies": {
-    "mocha": "^7.1.2",
+    "mocha": "^10.2.0",
     "sails": "^1.2.3"
   }
 }
